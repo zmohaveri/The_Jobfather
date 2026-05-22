@@ -63,7 +63,7 @@ def main():
 
     if not args.input_json is None:
       with open(Path(args.input_json), 'r', encoding='utf-8') as f:
-          job_posting_text = json.load(f)['job_posting_text'] #TODO get the whole object
+          job_posting_text = JobPosting.model_validate(json.load(f)).model_dump_json()
 
     if not args.input_text is None:
       with open(Path(args.input_text), 'r', encoding='utf-8') as f:

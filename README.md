@@ -6,7 +6,7 @@
 
 
 <h2 align="left">
-  <em><b>“I'm gonna get them an offer they can't refuse.”</b></em> --The Jobfather
+  <em><b>“I'm gonna get them an offer they can't refuse.”</b></em>
 </h2>
 
 
