@@ -136,11 +136,10 @@ def main():
 
     if not args.input_text is None:
       with open(Path(args.input_text), 'r', encoding='utf-8') as f:
-          job_posting_text = f.read()
+          job_posting = f.read()
 
     if not args.url is None:
-      job_posting_text = get_job_posting_from_url(args.url)
-          job_posting = f.read()
+      job_posting = get_job_posting_from_url(args.url)
     
     structured_job = get_structured_job(job_posting)
 

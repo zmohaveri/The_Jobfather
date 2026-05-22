@@ -112,7 +112,7 @@ def save_job(job: JobOpening, db_path: Optional[Path] = None) -> None:
                     language_skills_json,
                     skills_and_tools_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(url) DO UPDATE SET
                     job_title = excluded.job_title,
                     job_field = excluded.job_field,
