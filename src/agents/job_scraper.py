@@ -15,6 +15,7 @@ base_path = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(base_path))
 
 from src.schemas.structured_job import JobPosting, JobOpening
+from src.db.job_store import save_job
 
 load_dotenv()
 
@@ -56,6 +57,13 @@ def main():
         default=None,
         help="Path to the text file containing the job posting."
     )
+    parser.add_argument(
+        "--save",
+        "-s",
+        action="store_true",
+        default=False,
+        help="Save the extracted structured job to the database."
+    )
     args = parser.parse_args()
 
     if not args.input_json and not args.input_text:
@@ -63,14 +71,18 @@ def main():
 
     if not args.input_json is None:
       with open(Path(args.input_json), 'r', encoding='utf-8') as f:
-          job_posting_text = JobPosting.model_validate(json.load(f)).model_dump_json()
+          job_posting = JobPosting.model_validate(json.load(f)).model_dump_json()
 
     if not args.input_text is None:
       with open(Path(args.input_text), 'r', encoding='utf-8') as f:
-          job_posting_text = f.read()
+          job_posting = f.read()
     
-    structured_job = get_structured_job(job_posting_text)
-    return structured_job
+    structured_job = get_structured_job(job_posting)
+
+    if args.save:
+        save_job(structured_job)
+    elif pprint:
+        pprint(structured_job)
 
 if __name__ == "__main__":
     structured_job = main()
