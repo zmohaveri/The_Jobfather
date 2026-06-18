@@ -1,0 +1,33 @@
+from pathlib import Path
+
+
+def read_document(path: str | Path) -> str:
+    path = Path(path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+
+    suffix = path.suffix.lower()
+
+    if suffix == ".pdf":
+        return _read_pdf(path)
+    elif suffix == ".docx":
+        return _read_docx(path)
+    elif suffix == ".txt":
+        return path.read_text(encoding="utf-8")
+    else:
+        raise ValueError(f"Unsupported file type: {suffix}. Supported: .pdf, .docx, .txt")
+
+
+def _read_pdf(path: Path) -> str:
+    from pypdf import PdfReader
+
+    reader = PdfReader(path)
+    return "\n".join(page.extract_text() or "" for page in reader.pages)
+
+
+def _read_docx(path: Path) -> str:
+    from docx import Document
+
+    doc = Document(path)
+    return "\n".join(p.text for p in doc.paragraphs)

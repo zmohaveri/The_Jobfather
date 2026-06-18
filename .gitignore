@@ -3,6 +3,13 @@ src/agents/.env
 __pycache__/
 *.pyc
 .venv/
+.vscode/
 venv/
 .gradio/
+# TODO add anonymized tests!
 /tests
+
+# Profile data (internal runtime state)
+src/profile/profile_data.json
+user_files/CVs/*
+user_files/CoverLetters/*
