@@ -1,47 +1,67 @@
 import json
 from pathlib import Path
 from src.schemas.user_profile import UserProfile
+from src.tools.doc_reader import SUPPORTED_EXTENSIONS, read_document
 import warnings
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 CV_FOLDER_PATH = PROJECT_ROOT / "user_files" / "CVs"
+COVER_LETTER_FOLDER_PATH = PROJECT_ROOT / "user_files" / "CoverLetters"
 DATA_PATH = PROJECT_ROOT / "src" / "profile" / "profile_data.json"
 
-SUPPORTED_CV_EXTENSIONS = {".pdf", ".docx", ".txt", ".doc"}
 
+def _pick_file(folder: Path, label: str) -> Path | None:
+    if not folder.exists():
+        raise FileNotFoundError(f"{label} folder not found at {folder}")
 
-def pick_cv() -> Path | None:
-    if not CV_FOLDER_PATH.exists():
-        raise FileNotFoundError(f"CV folder not found at {CV_FOLDER_PATH}")
+    files = [f for f in folder.iterdir() if f.suffix.lower() in SUPPORTED_EXTENSIONS]
 
-    cvs = [f for f in CV_FOLDER_PATH.iterdir() if f.suffix.lower() in SUPPORTED_CV_EXTENSIONS]
-
-    if not cvs:
-        warnings.warn(f"No files with expected extensions ({', '.join(SUPPORTED_CV_EXTENSIONS)}) found in CV folder at {CV_FOLDER_PATH}.")
+    if not files:
+        warnings.warn(f"No supported files found in {label} folder at {folder}.")
         return None
 
-    if len(cvs) == 1:
-        return cvs[0] #if there's only one CV, just use it without asking. Otherwise, ask the user to pick one.
+    if len(files) == 1:
+        return files[0]
 
-    print("Multiple CVs found. Pick one:")
-    for i, cv in enumerate(cvs, 1):
-        print(f"  [{i}] {cv.name}")
+    print(f"Multiple {label}s found. Pick one:")
+    for i, f in enumerate(files, 1):
+        print(f"  [{i}] {f.name}")
 
     while True:
         try:
-            choice = input(f"Enter number (1-{len(cvs)}): ").strip()
+            choice = input(f"Enter number (1-{len(files)}): ").strip()
             idx = int(choice) - 1
-            if 0 <= idx < len(cvs):
-                return cvs[idx]
+            if 0 <= idx < len(files):
+                return files[idx]
         except ValueError:
             pass
-        print(f"Invalid choice. Enter 1-{len(cvs)}.")
+        print(f"Invalid choice. Enter 1-{len(files)}.")
+
+
+def pick_cv() -> Path | None:
+    return _pick_file(CV_FOLDER_PATH, "CV")
+
+
+def pick_cover_letter() -> Path | None:
+    return _pick_file(COVER_LETTER_FOLDER_PATH, "cover letter")
+
+
+def create_profile(cv_path: Path | None = None, cover_letter_path: Path | None = None) -> UserProfile:
+    kwargs = {}
+    if cv_path:
+        kwargs["cv_text"] = read_document(cv_path)
+    if cover_letter_path:
+        kwargs["cover_letter_text"] = read_document(cover_letter_path)
+
+    return UserProfile(**kwargs)
 
 
 def create_profile_from_cv(cv_path: Path) -> UserProfile:
-    from src.tools.doc_reader import read_document
-    cv_text = read_document(cv_path)
-    return UserProfile(cv_text=cv_text)
+    return create_profile(cv_path=cv_path)
+
+
+def create_profile_from_cover_letter(cover_letter_path: Path) -> UserProfile:
+    return create_profile(cover_letter_path=cover_letter_path)
 
 
 def load_profile() -> UserProfile:
@@ -84,8 +104,13 @@ if __name__ == "__main__":
     parser.add_argument("--reset", action="store_true", help="Delete saved profile data")
     parser.add_argument("--show", action="store_true", help="Load and display current profile")
     parser.add_argument("--pick-cv", action="store_true", help="Test CV file selection")
+    parser.add_argument("--pick-cover-letter", action="store_true", help="Test cover letter file selection")
     parser.add_argument("--create-from-cv", type=str, default=None, help="Create and save profile from a specific CV file")
     parser.add_argument("--create-from-cv-dir", action="store_true", help="Pick a CV from the folder and create a profile")
+    parser.add_argument("--create-from-cover-letter", type=str, default=None, help="Create and save profile from a specific cover letter file")
+    parser.add_argument("--create-from-cover-letter-dir", action="store_true", help="Pick a cover letter from the folder and create a profile")
+    parser.add_argument("--create-from-both", type=str, nargs=2, metavar=("CV_PATH", "CL_PATH"), default=None, help="Create profile from both a CV file and a cover letter file")
+    parser.add_argument("--create-from-user-files", action="store_true", help="Pick both a CV and a cover letter from their folders")
     parser.add_argument("--create-from-text", type=str, default=None, help="Create and save profile from raw text")
     parser.add_argument("--update", type=str, default=None, help="Update profile fields. JSON string, e.g. '{\"skills\": [\"Python\"]}'")
     args = parser.parse_args()
@@ -99,10 +124,12 @@ if __name__ == "__main__":
         cv = pick_cv()
         if cv:
             print(f"Selected CV: {cv}")
+    elif args.pick_cover_letter:
+        cl = pick_cover_letter()
+        if cl:
+            print(f"Selected cover letter: {cl}")
     elif args.create_from_cv:
-        from src.tools.doc_reader import read_document
-        cv_text = read_document(args.create_from_cv)
-        profile = UserProfile(cv_text=cv_text)
+        profile = create_profile(cv_path=Path(args.create_from_cv))
         save_profile(profile)
         print("Profile created and saved from CV:")
         print(profile.model_dump_json(indent=2))
@@ -111,9 +138,39 @@ if __name__ == "__main__":
         if not cv:
             print("No CV selected. Aborting.")
         else:
-            profile = create_profile_from_cv(cv)
+            profile = create_profile(cv_path=cv)
             save_profile(profile)
             print("Profile created and saved from CV:")
+            print(profile.model_dump_json(indent=2))
+    elif args.create_from_cover_letter:
+        profile = create_profile(cover_letter_path=Path(args.create_from_cover_letter))
+        save_profile(profile)
+        print("Profile created and saved from cover letter:")
+        print(profile.model_dump_json(indent=2))
+    elif args.create_from_cover_letter_dir:
+        cl = pick_cover_letter()
+        if not cl:
+            print("No cover letter selected. Aborting.")
+        else:
+            profile = create_profile(cover_letter_path=cl)
+            save_profile(profile)
+            print("Profile created and saved from cover letter:")
+            print(profile.model_dump_json(indent=2))
+    elif args.create_from_both:
+        cv_path, cl_path = [Path(p) for p in args.create_from_both]
+        profile = create_profile(cv_path=cv_path, cover_letter_path=cl_path)
+        save_profile(profile)
+        print("Profile created and saved from CV and cover letter:")
+        print(profile.model_dump_json(indent=2))
+    elif args.create_from_user_files:
+        cv = pick_cv()
+        cl = pick_cover_letter()
+        if not cv and not cl:
+            print("No CV or cover letter selected. Aborting.")
+        else:
+            profile = create_profile(cv_path=cv, cover_letter_path=cl)
+            save_profile(profile)
+            print("Profile created and saved:")
             print(profile.model_dump_json(indent=2))
     elif args.create_from_text:
         profile = UserProfile(cv_text=args.create_from_text)

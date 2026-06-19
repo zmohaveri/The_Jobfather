@@ -1,5 +1,7 @@
 from pathlib import Path
 
+SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt"}
+
 
 def read_document(path: str | Path) -> str:
     path = Path(path)
@@ -16,7 +18,7 @@ def read_document(path: str | Path) -> str:
     elif suffix == ".txt":
         return path.read_text(encoding="utf-8")
     else:
-        raise ValueError(f"Unsupported file type: {suffix}. Supported: .pdf, .docx, .txt")
+        raise ValueError(f"Unsupported file type: {suffix}. Supported: {', '.join(SUPPORTED_EXTENSIONS)}")
 
 
 def _read_pdf(path: Path) -> str:

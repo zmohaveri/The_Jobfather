@@ -2,7 +2,12 @@ from pydantic import BaseModel, Field
 
 
 class UserProfile(BaseModel):
-    cv_text: str = Field(description="CV or resume text of the user")
+    cv_text: str | None = Field(
+        default=None, description="CV or resume text of the user"
+    )
+    cover_letter_text: str | None = Field(
+        default=None, description="Cover letter text of the user"
+    )
     desired_roles: list[str] = Field(
         default=[], description="Job titles or roles the user is interested in"
     )
