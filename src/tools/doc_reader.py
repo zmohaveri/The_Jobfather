@@ -22,10 +22,10 @@ def read_document(path: str | Path) -> str:
 
 
 def _read_pdf(path: Path) -> str:
-    from pypdf import PdfReader
+    import fitz
 
-    reader = PdfReader(path)
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
+    doc = fitz.open(path)
+    return "\n".join(page.get_text() for page in doc)
 
 
 def _read_docx(path: Path) -> str:
