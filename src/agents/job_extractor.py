@@ -18,7 +18,7 @@ sys.path.append(str(base_path))
 
 from src.agents.llm_config import LLM_MODEL, LLM_PROVIDER
 from src.schemas.structured_job import JobPosting, JobOpening
-from src.db.job_store import save_job
+from src.db.job_db_io import save_job
 
 llm = init_chat_model(LLM_MODEL, model_provider=LLM_PROVIDER)
 structured_llm = llm.with_structured_output(JobOpening)
@@ -92,7 +92,7 @@ def get_structured_job(input):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Scrape a job posting and extract structured data.")
+    parser = argparse.ArgumentParser(description="Extract structured data from a job posting.")
     parser.add_argument(
         "--input_json",
         "-j", 
