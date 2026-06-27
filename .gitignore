@@ -1,9 +1,18 @@
 .env
-src/agents/.env
 __pycache__/
 *.pyc
 .venv/
+.vscode/
 venv/
 .gradio/
+# TODO add anonymized tests!
 /tests
-/data
+
+# Profile data (internal runtime state)
+src/profile/profile_data.json
+
+# Keep folder structure but ignore actual files
+user_files/CVs/*
+!user_files/CVs/.gitkeep
+user_files/CoverLetters/*
+!user_files/CoverLetters/.gitkeep
