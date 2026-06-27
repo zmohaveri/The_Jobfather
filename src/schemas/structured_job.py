@@ -82,7 +82,7 @@ class JobOpening (BaseModel):
   skills_and_tools: list[Skill] = Field(description="list of the skills mentioned in the job")
   seniority: str = Field(description=(
     "seniority of the job position. "
-    "'junior', 'medior or Associate', 'internship or working student', or 'team lead or higher'."
+    "'junior', 'medior or Associate', 'internship or working student', 'senior', or 'team lead or higher'."
     "If it's not explicitly mentioned, try to infer based on requirements."
   ))
   company_culture: str = Field(default=None,description=(

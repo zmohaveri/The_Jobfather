@@ -3,7 +3,6 @@ from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from datetime import date
 from typing import Optional
-from dotenv import load_dotenv
 from devtools import pprint
 from html.parser import HTMLParser
 import json
@@ -17,13 +16,10 @@ from urllib.request import Request, urlopen
 base_path = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(base_path))
 
+from src.agents.llm_config import LLM_MODEL, LLM_PROVIDER
 from src.schemas.structured_job import JobPosting, JobOpening
 
-load_dotenv()
-
-llm = init_chat_model("gpt-4o-mini", model_provider="openai")
-
-
+llm = init_chat_model(LLM_MODEL, model_provider=LLM_PROVIDER)
 structured_llm = llm.with_structured_output(JobOpening)
 
 prompt_template_str = """
