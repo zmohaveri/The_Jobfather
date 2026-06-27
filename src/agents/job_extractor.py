@@ -64,6 +64,7 @@ def get_job_posting_from_url(url):
     request = Request(
         url,
         headers={
+            # TODO: replace example.com with actual bot policy URL if ever deployed publicly
             "User-Agent": "Mozilla/5.0 (compatible; TheJobfather/0.1; +https://example.com/bot)"
         },
     )

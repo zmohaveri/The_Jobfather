@@ -1,4 +1,5 @@
 import argparse
+import json
 import sqlite3
 from pathlib import Path
 from typing import Optional, Iterable
@@ -12,6 +13,7 @@ from src.schemas.structured_job import (
     Skill,
     RangedInt,
 )
+from src.schemas.job_fit_assessment import FitAssessment, FitScore
 
 
 DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "jobs.db"
@@ -77,6 +79,33 @@ def get_db(db_path: Optional[Path] = None) -> sqlite3.Connection:
             level_literal TEXT,
             level_infered TEXT,
             PRIMARY KEY (job_url, language)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS assessments (
+            job_url                     TEXT PRIMARY KEY REFERENCES jobs(url),
+            overall_score               TEXT,
+            overall_explanation         TEXT,
+            role_fit_score              TEXT,
+            role_fit_explanation        TEXT,
+            skill_fit_score             TEXT,
+            skill_fit_explanation       TEXT,
+            location_fit_score          TEXT,
+            location_fit_explanation    TEXT,
+            work_mode_fit_score         TEXT,
+            work_mode_fit_explanation   TEXT,
+            seniority_fit_score         TEXT,
+            seniority_fit_explanation   TEXT,
+            salary_fit_score            TEXT,
+            salary_fit_explanation      TEXT,
+            main_mismatch_reason        TEXT,
+            matched_skills_json         TEXT,
+            missing_key_skills_json     TEXT,
+            recommendation              TEXT,
+            reasoning                   TEXT,
+            assessed_at                 TEXT NOT NULL DEFAULT (datetime('now'))
         )
         """
     )
@@ -164,7 +193,7 @@ def save_job(job: JobOpening, db_path: Optional[Path] = None) -> None:
                 conn.execute(
                     "INSERT INTO job_languages VALUES (?, ?, ?, ?)",
                     (job.url, ls.language, ls.level_literal, ls.level_infered),
-                )
+            )
     finally:
         conn.close()
 
@@ -358,6 +387,149 @@ def get_job_status(url: str, db_path: Optional[Path] = None) -> str | None:
         conn.close()
 
 
+def save_assessment(
+    assessment: FitAssessment, db_path: Optional[Path] = None
+) -> None:
+    conn = get_db(db_path)
+    try:
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO assessments (
+                    job_url, overall_score, overall_explanation,
+                    role_fit_score, role_fit_explanation,
+                    skill_fit_score, skill_fit_explanation,
+                    location_fit_score, location_fit_explanation,
+                    work_mode_fit_score, work_mode_fit_explanation,
+                    seniority_fit_score, seniority_fit_explanation,
+                    salary_fit_score, salary_fit_explanation,
+                    main_mismatch_reason,
+                    matched_skills_json, missing_key_skills_json,
+                    recommendation, reasoning
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(job_url) DO UPDATE SET
+                    overall_score = excluded.overall_score,
+                    overall_explanation = excluded.overall_explanation,
+                    role_fit_score = excluded.role_fit_score,
+                    role_fit_explanation = excluded.role_fit_explanation,
+                    skill_fit_score = excluded.skill_fit_score,
+                    skill_fit_explanation = excluded.skill_fit_explanation,
+                    location_fit_score = excluded.location_fit_score,
+                    location_fit_explanation = excluded.location_fit_explanation,
+                    work_mode_fit_score = excluded.work_mode_fit_score,
+                    work_mode_fit_explanation = excluded.work_mode_fit_explanation,
+                    seniority_fit_score = excluded.seniority_fit_score,
+                    seniority_fit_explanation = excluded.seniority_fit_explanation,
+                    salary_fit_score = excluded.salary_fit_score,
+                    salary_fit_explanation = excluded.salary_fit_explanation,
+                    main_mismatch_reason = excluded.main_mismatch_reason,
+                    matched_skills_json = excluded.matched_skills_json,
+                    missing_key_skills_json = excluded.missing_key_skills_json,
+                    recommendation = excluded.recommendation,
+                    reasoning = excluded.reasoning,
+                    assessed_at = datetime('now')
+                """,
+                (
+                    assessment.url,
+                    assessment.overall.score,
+                    assessment.overall.explanation,
+                    assessment.role_fit.score,
+                    assessment.role_fit.explanation,
+                    assessment.skill_fit.score,
+                    assessment.skill_fit.explanation,
+                    assessment.location_fit.score,
+                    assessment.location_fit.explanation,
+                    assessment.work_mode_fit.score,
+                    assessment.work_mode_fit.explanation,
+                    assessment.seniority_fit.score,
+                    assessment.seniority_fit.explanation,
+                    assessment.salary_fit.score if assessment.salary_fit else None,
+                    assessment.salary_fit.explanation if assessment.salary_fit else None,
+                    assessment.main_mismatch_reason,
+                    json.dumps(assessment.matched_skills, ensure_ascii=False),
+                    json.dumps(assessment.missing_key_skills, ensure_ascii=False),
+                    assessment.recommendation,
+                    assessment.reasoning,
+                ),
+            )
+    finally:
+        conn.close()
+
+
+def get_assessment_by_url(
+    url: str, db_path: Optional[Path] = None
+) -> Optional[FitAssessment]:
+    conn = get_db(db_path)
+    try:
+        row = conn.execute(
+            """
+            SELECT
+                job_url,
+                overall_score, overall_explanation,
+                role_fit_score, role_fit_explanation,
+                skill_fit_score, skill_fit_explanation,
+                location_fit_score, location_fit_explanation,
+                work_mode_fit_score, work_mode_fit_explanation,
+                seniority_fit_score, seniority_fit_explanation,
+                salary_fit_score, salary_fit_explanation,
+                main_mismatch_reason,
+                matched_skills_json, missing_key_skills_json,
+                recommendation, reasoning,
+                assessed_at
+            FROM assessments WHERE job_url = ?
+            """,
+            (url,),
+        ).fetchone()
+        if row is None:
+            return None
+        return _row_to_assessment(row)
+    finally:
+        conn.close()
+
+
+def _row_to_assessment(row: tuple) -> FitAssessment:
+    (
+        job_url,
+        overall_score, overall_explanation,
+        role_fit_score, role_fit_explanation,
+        skill_fit_score, skill_fit_explanation,
+        location_fit_score, location_fit_explanation,
+        work_mode_fit_score, work_mode_fit_explanation,
+        seniority_fit_score, seniority_fit_explanation,
+        salary_fit_score, salary_fit_explanation,
+        main_mismatch_reason,
+        matched_skills_json, missing_key_skills_json,
+        recommendation, reasoning,
+        assessed_at,
+    ) = row
+
+    salary_fit = (
+        FitScore(score=salary_fit_score, explanation=salary_fit_explanation)
+        if salary_fit_score
+        else None
+    )
+
+    matched_skills = json.loads(matched_skills_json) if matched_skills_json else []
+    missing_key_skills = json.loads(missing_key_skills_json) if missing_key_skills_json else []
+
+    return FitAssessment(
+        url=job_url,
+        overall=FitScore(score=overall_score, explanation=overall_explanation),
+        role_fit=FitScore(score=role_fit_score, explanation=role_fit_explanation),
+        skill_fit=FitScore(score=skill_fit_score, explanation=skill_fit_explanation),
+        location_fit=FitScore(score=location_fit_score, explanation=location_fit_explanation),
+        work_mode_fit=FitScore(score=work_mode_fit_score, explanation=work_mode_fit_explanation),
+        seniority_fit=FitScore(score=seniority_fit_score, explanation=seniority_fit_explanation),
+        salary_fit=salary_fit,
+        main_mismatch_reason=main_mismatch_reason,
+        matched_skills=matched_skills,
+        missing_key_skills=missing_key_skills,
+        recommendation=recommendation,
+        reasoning=reasoning,
+    )
+
+
 def _fetch_status_map(conn: sqlite3.Connection) -> dict[str, str]:
     return {
         r[0]: r[1]
@@ -382,6 +554,9 @@ def main():
         choices=sorted(VALID_STATUSES),
         help="New status"
     )
+
+    assessment_parser = sub.add_parser("assessment", help="Get job fit assessment")
+    assessment_parser.add_argument("--url", "-u", required=True, help="Job posting URL")
 
     args = parser.parse_args()
 
@@ -443,6 +618,13 @@ def main():
             return
         update_job_status(args.url, args.set)
         print(f"Status updated: {status_before} → {args.set}")
+
+    elif args.command == "assessment":
+        assessment = get_assessment_by_url(args.url)
+        if assessment:
+            pprint(assessment)
+        else:
+            print("No assessment found for this job.")
 
 
 if __name__ == "__main__":
