@@ -98,6 +98,7 @@ class JobOpening (BaseModel):
   point_of_contact: str = Field(default=None, description="Point of contact")
   source: str= Field(description="Platform where job ad was found (e.g. LinkedIn, Xing, Indeed, company website).")
   date_posted: date = Field(default=None,description="Date when job ad was posted")
+  deadline: Optional[date] = Field(default=None,description="Application deadline or closing date for the job posting, if mentioned.")
   special_consideration: str = Field(description=(
     "Any notable extra information about the role or company not captured elsewhere. "
     "e.g. unusual requirements, strong preferences, or standout benefits."

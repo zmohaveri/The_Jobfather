@@ -12,6 +12,8 @@ venv/
 src/profile/profile_data.json
 
 # Keep folder structure but ignore actual files
+/data/*
+!/data/.gitkeep
 user_files/CVs/*
 !user_files/CVs/.gitkeep
 user_files/CoverLetters/*

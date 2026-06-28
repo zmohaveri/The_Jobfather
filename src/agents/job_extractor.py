@@ -18,6 +18,7 @@ sys.path.append(str(base_path))
 
 from src.agents.llm_config import LLM_MODEL, LLM_PROVIDER
 from src.schemas.structured_job import JobPosting, JobOpening
+from src.db.job_db_io import save_job
 
 llm = init_chat_model(LLM_MODEL, model_provider=LLM_PROVIDER)
 structured_llm = llm.with_structured_output(JobOpening)
@@ -63,6 +64,7 @@ def get_job_posting_from_url(url):
     request = Request(
         url,
         headers={
+            # TODO: replace example.com with actual bot policy URL if ever deployed publicly
             "User-Agent": "Mozilla/5.0 (compatible; TheJobfather/0.1; +https://example.com/bot)"
         },
     )
@@ -91,7 +93,7 @@ def get_structured_job(input):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Scrape a job posting and extract structured data.")
+    parser = argparse.ArgumentParser(description="Extract structured data from a job posting.")
     parser.add_argument(
         "--input_json",
         "-j", 
@@ -113,6 +115,13 @@ def main():
         default=None,
         help="URL containing the job posting."
     )
+    parser.add_argument(
+        "--save",
+        "-s",
+        action="store_true",
+        default=False,
+        help="Save the extracted structured job to the database."
+    )
     args = parser.parse_args()
 
     if not args.input_json and not args.input_text and not args.url:
@@ -120,17 +129,21 @@ def main():
 
     if not args.input_json is None:
       with open(Path(args.input_json), 'r', encoding='utf-8') as f:
-          job_posting_text = JobPosting.model_validate(json.load(f)).model_dump_json()
+          job_posting = JobPosting.model_validate(json.load(f)).model_dump_json()
 
     if not args.input_text is None:
       with open(Path(args.input_text), 'r', encoding='utf-8') as f:
-          job_posting_text = f.read()
+          job_posting = f.read()
 
     if not args.url is None:
-      job_posting_text = get_job_posting_from_url(args.url)
+      job_posting = get_job_posting_from_url(args.url)
     
-    structured_job = get_structured_job(job_posting_text)
-    return structured_job
+    structured_job = get_structured_job(job_posting)
+
+    if args.save:
+        save_job(structured_job)
+    elif pprint:
+        pprint(structured_job)
 
 if __name__ == "__main__":
     structured_job = main()

@@ -9,6 +9,7 @@ base_path = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(base_path))
 
 from src.agents.llm_config import LLM_MODEL, LLM_PROVIDER
+from src.db.job_db_io import get_assessment_by_url, save_assessment
 from src.schemas.structured_job import JobOpening
 from src.schemas.user_profile import UserProfile
 from src.schemas.job_fit_assessment import FitAssessment
@@ -119,6 +120,14 @@ def main():
         "--profile", "-p", type=str, required=True,
         help="Path to a JSON file containing a UserProfile object.",
     )
+    parser.add_argument(
+        "--save", "-s", action="store_true", default=False,
+        help="Save the assessment to the database.",
+    )
+    parser.add_argument(
+        "--no-overwrite", action="store_true", default=False,
+        help="Skip saving if an assessment already exists for this job URL.",
+    )
     args = parser.parse_args()
 
     with open(Path(args.job), "r", encoding="utf-8") as f:
@@ -128,6 +137,14 @@ def main():
         profile = UserProfile.model_validate(json.load(f))
 
     assessment = assess_fit(job, profile)
+
+    if args.save:
+        if args.no_overwrite and get_assessment_by_url(assessment.url):
+            print("Assessment already exists. Skipping save (--no-overwrite).\n")
+        else:
+            save_assessment(assessment)
+            print("Assessment saved to database.\n")
+
     print(assessment.model_dump_json(indent=2, exclude_none=True))
     return assessment
 
