@@ -54,6 +54,7 @@ def get_db(db_path: Optional[Path] = None) -> sqlite3.Connection:
             point_of_contact TEXT,
             source TEXT,
             date_posted TEXT,
+            deadline TEXT,
             special_consideration TEXT,
             status TEXT NOT NULL DEFAULT 'discovered',
             discovered_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -129,9 +130,9 @@ def save_job(job: JobOpening, db_path: Optional[Path] = None) -> None:
                     job_ad_language, work_mode, seniority, company_culture,
                     salary_min, salary_max, summary,
                     company_size_min, company_size_max,
-                    point_of_contact, source, date_posted, special_consideration
+                    point_of_contact, source, date_posted, special_consideration, deadline
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(url) DO UPDATE SET
                     job_title = excluded.job_title,
                     job_field = excluded.job_field,
@@ -153,6 +154,7 @@ def save_job(job: JobOpening, db_path: Optional[Path] = None) -> None:
                     point_of_contact = excluded.point_of_contact,
                     source = excluded.source,
                     date_posted = excluded.date_posted,
+                    deadline = excluded.deadline,
                     special_consideration = excluded.special_consideration
                 """,
                 (
@@ -178,6 +180,7 @@ def save_job(job: JobOpening, db_path: Optional[Path] = None) -> None:
                     job.source,
                     job.date_posted.isoformat() if job.date_posted else None,
                     job.special_consideration,
+                    job.deadline.isoformat() if job.deadline else None,
                 ),
             )
 
@@ -229,7 +232,7 @@ def get_job_by_url(url: str, db_path: Optional[Path] = None) -> Optional[JobOpen
                 job_ad_language, work_mode, seniority, company_culture,
                 salary_min, salary_max, summary,
                 company_size_min, company_size_max,
-                point_of_contact, source, date_posted, special_consideration
+                point_of_contact, source, date_posted, special_consideration, deadline
             FROM jobs WHERE url = ?
             """,
             (url,),
@@ -255,7 +258,7 @@ def list_jobs(db_path: Optional[Path] = None) -> Iterable[JobOpening]:
                 job_ad_language, work_mode, seniority, company_culture,
                 salary_min, salary_max, summary,
                 company_size_min, company_size_max,
-                point_of_contact, source, date_posted, special_consideration
+                point_of_contact, source, date_posted, special_consideration, deadline
             FROM jobs ORDER BY id DESC
             """
         ).fetchall()
@@ -313,6 +316,7 @@ def _row_to_jobopening(
         source,
         date_posted,
         special_consideration,
+        deadline,
     ) = row
 
     location = (
@@ -357,6 +361,7 @@ def _row_to_jobopening(
         point_of_contact=point_of_contact,
         source=source,
         date_posted=None if date_posted is None else date_posted,
+        deadline=None if deadline is None else deadline,
         special_consideration=special_consideration,
     )
 
