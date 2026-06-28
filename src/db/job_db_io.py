@@ -346,7 +346,7 @@ def _row_to_jobopening(
         company_sector=company_sector,
         location=location,
         job_ad_language=job_ad_language,
-        language_skills_required=languages or None,
+        language_skills_required=languages or [],
         work_mode=work_mode,
         skills_and_tools=skills or [],
         seniority=seniority,
