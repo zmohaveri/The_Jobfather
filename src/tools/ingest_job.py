@@ -168,13 +168,16 @@ def main():
     force_assessment = args.force or args.force_assessment
 
     for url in all_urls:
-        result = ingest_job_from_url(
-            url,
-            profile_path=args.profile,
-            force_job=force_job,
-            force_assessment=force_assessment,
-        )
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        try:    
+            result = ingest_job_from_url(
+                url,
+                profile_path=args.profile,
+                force_job=force_job,
+                force_assessment=force_assessment,
+            )
+        except Exception as e:
+            print(f"URL {url} did not process") #TODO handle exceptions for defective urls
+        #print(json.dumps(result, indent=2, ensure_ascii=False))
         print()
 
 

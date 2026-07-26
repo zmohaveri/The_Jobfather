@@ -87,6 +87,8 @@ def get_db(db_path: Optional[Path] = None) -> sqlite3.Connection:
         """
         CREATE TABLE IF NOT EXISTS assessments (
             job_url                     TEXT PRIMARY KEY REFERENCES jobs(url),
+            job_title                   TEXT,
+            company                     TEXT,
             overall_score               TEXT,
             overall_explanation         TEXT,
             role_fit_score              TEXT,
@@ -110,6 +112,11 @@ def get_db(db_path: Optional[Path] = None) -> sqlite3.Connection:
         )
         """
     )
+    for col in ("enriched_json", "job_title", "company"):
+        try:
+            conn.execute(f"ALTER TABLE assessments ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass
     conn.commit()
     return conn
 
@@ -392,16 +399,70 @@ def get_job_status(url: str, db_path: Optional[Path] = None) -> str | None:
         conn.close()
 
 
+def _dump_enriched(assessment: FitAssessment) -> str | None:
+    enriched = {}
+    for field in ("role_breakdown", "experience_translation", "gaps",
+                   "hiring_risks", "career_trajectory", "story", "missing_info"):
+        val = getattr(assessment, field, None)
+        if val is None:
+            continue
+        if isinstance(val, list):
+            enriched[field] = [
+                item.model_dump(mode="json") if hasattr(item, "model_dump") else item
+                for item in val
+            ]
+        elif hasattr(val, "model_dump"):
+            enriched[field] = val.model_dump(mode="json")
+        else:
+            enriched[field] = val
+    return json.dumps(enriched, ensure_ascii=False) if enriched else None
+
+
+def _load_enriched(assessment: FitAssessment, raw: str | None) -> None:
+    if not raw:
+        return
+    from src.schemas.job_fit_assessment import (
+        RoleBreakdown, TranslationMapping, GapItem,
+        HiringRiskItem, ApplicationStory, MissingInformation,
+    )
+    data = json.loads(raw)
+    mapping = {
+        "role_breakdown": RoleBreakdown,
+        "experience_translation": TranslationMapping,
+        "gaps": GapItem,
+        "hiring_risks": HiringRiskItem,
+        "story": ApplicationStory,
+        "missing_info": MissingInformation,
+    }
+    for field, model_cls in mapping.items():
+        val = data.get(field)
+        if val is not None:
+            if isinstance(val, list):
+                setattr(assessment, field, [model_cls(**item) for item in val])
+            else:
+                setattr(assessment, field, model_cls(**val))
+    career = data.get("career_trajectory")
+    if career is not None:
+        assessment.career_trajectory = career
+
+
 def save_assessment(
     assessment: FitAssessment, db_path: Optional[Path] = None
 ) -> None:
     conn = get_db(db_path)
     try:
+        job_row = conn.execute(
+            "SELECT job_title, company FROM jobs WHERE url = ?", (assessment.url,)
+        ).fetchone()
+        job_title = job_row[0] if job_row else None
+        company = job_row[1] if job_row else None
+
         with conn:
             conn.execute(
                 """
                 INSERT INTO assessments (
-                    job_url, overall_score, overall_explanation,
+                    job_url, job_title, company,
+                    overall_score, overall_explanation,
                     role_fit_score, role_fit_explanation,
                     skill_fit_score, skill_fit_explanation,
                     location_fit_score, location_fit_explanation,
@@ -410,10 +471,13 @@ def save_assessment(
                     salary_fit_score, salary_fit_explanation,
                     main_mismatch_reason,
                     matched_skills_json, missing_key_skills_json,
-                    recommendation, reasoning
+                    recommendation, reasoning,
+                    enriched_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(job_url) DO UPDATE SET
+                    job_title = excluded.job_title,
+                    company = excluded.company,
                     overall_score = excluded.overall_score,
                     overall_explanation = excluded.overall_explanation,
                     role_fit_score = excluded.role_fit_score,
@@ -433,10 +497,13 @@ def save_assessment(
                     missing_key_skills_json = excluded.missing_key_skills_json,
                     recommendation = excluded.recommendation,
                     reasoning = excluded.reasoning,
+                    enriched_json = excluded.enriched_json,
                     assessed_at = datetime('now')
                 """,
                 (
                     assessment.url,
+                    job_title,
+                    company,
                     assessment.overall.score,
                     assessment.overall.explanation,
                     assessment.role_fit.score,
@@ -456,6 +523,7 @@ def save_assessment(
                     json.dumps(assessment.missing_key_skills, ensure_ascii=False),
                     assessment.recommendation,
                     assessment.reasoning,
+                    _dump_enriched(assessment),
                 ),
             )
     finally:
@@ -471,6 +539,8 @@ def get_assessment_by_url(
             """
             SELECT
                 job_url,
+                job_title,
+                company,
                 overall_score, overall_explanation,
                 role_fit_score, role_fit_explanation,
                 skill_fit_score, skill_fit_explanation,
@@ -481,7 +551,8 @@ def get_assessment_by_url(
                 main_mismatch_reason,
                 matched_skills_json, missing_key_skills_json,
                 recommendation, reasoning,
-                assessed_at
+                assessed_at,
+                enriched_json
             FROM assessments WHERE job_url = ?
             """,
             (url,),
@@ -496,6 +567,8 @@ def get_assessment_by_url(
 def _row_to_assessment(row: tuple) -> FitAssessment:
     (
         job_url,
+        job_title,
+        company,
         overall_score, overall_explanation,
         role_fit_score, role_fit_explanation,
         skill_fit_score, skill_fit_explanation,
@@ -507,6 +580,7 @@ def _row_to_assessment(row: tuple) -> FitAssessment:
         matched_skills_json, missing_key_skills_json,
         recommendation, reasoning,
         assessed_at,
+        enriched_json,
     ) = row
 
     salary_fit = (
@@ -518,7 +592,7 @@ def _row_to_assessment(row: tuple) -> FitAssessment:
     matched_skills = json.loads(matched_skills_json) if matched_skills_json else []
     missing_key_skills = json.loads(missing_key_skills_json) if missing_key_skills_json else []
 
-    return FitAssessment(
+    assessment = FitAssessment(
         url=job_url,
         overall=FitScore(score=overall_score, explanation=overall_explanation),
         role_fit=FitScore(score=role_fit_score, explanation=role_fit_explanation),
@@ -533,6 +607,8 @@ def _row_to_assessment(row: tuple) -> FitAssessment:
         recommendation=recommendation,
         reasoning=reasoning,
     )
+    _load_enriched(assessment, enriched_json)
+    return assessment
 
 
 def _fetch_status_map(conn: sqlite3.Connection) -> dict[str, str]:

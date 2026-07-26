@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Optional
 
 
 class FitScore(BaseModel):
@@ -11,6 +12,58 @@ class FitScore(BaseModel):
     explanation: str = Field(
         description="Concise reason this score was assigned for this dimension"
     )
+
+
+class RoleBreakdown(BaseModel):
+    coding_pct: int = Field(description="What percentage of the role is hands-on coding")
+    stakeholder_pct: int = Field(description="What percentage is stakeholder management / communication")
+    data_engineering_pct: int = Field(description="Percentage focused on data engineering, pipelines, infrastructure")
+    consulting_pct: int = Field(description="Percentage that is internal or external consulting / advisory")
+    research_pct: int = Field(description="Percentage that is research, experimentation, or exploration")
+    reasoning: str = Field(description="Why this breakdown was chosen based on the job ad")
+
+
+class TranslationMapping(BaseModel):
+    cv_element: str = Field(description="Specific element from the CV or profile")
+    maps_to: str = Field(description="What this element demonstrates that is relevant to the role")
+    confidence: str = Field(description="How directly this maps: high / medium / low")
+
+
+class GapItem(BaseModel):
+    area: str = Field(description="The skill, knowledge area, or qualification that is missing")
+    gap_type: str = Field(description="hard / soft / negotiable")
+    detail: str = Field(description="Why this gap matters and how critical it is")
+
+
+class HiringRiskItem(BaseModel):
+    area: str = Field(description="Risk area — e.g. technical_interview, domain_knowledge, german_communication, seniority_expectations")
+    level: str = Field(description="low / medium / high")
+    note: str = Field(description="Why this risk level was assigned")
+
+
+class ApplicationStory(BaseModel):
+    why_you: str = Field(description="Compelling case for why the user specifically fits this role")
+    why_this_role: str = Field(description="Why this role makes sense for the user at this stage in their career")
+    strongest_arguments: list[str] = Field(description="Top 2-3 arguments in favor of applying")
+    weakest_areas: list[str] = Field(description="Top 2-3 areas of concern")
+    interview_risk: str = Field(description="The most likely objection from the hiring manager and how to address it")
+    narrative: str = Field(description="One-sentence pitch: 'Bridge between X and Y'")
+
+
+class MissingInformation(BaseModel):
+    questions: list[str] = Field(description="Questions whose answers would significantly change the assessment")
+
+
+# ── Wrappers for list-typed structured outputs ───────────────────────
+
+class TranslationMappingList(BaseModel):
+    items: list[TranslationMapping] = Field(description="Experience translation mappings")
+
+class GapItemList(BaseModel):
+    items: list[GapItem] = Field(description="Gap analysis items")
+
+class HiringRiskItemList(BaseModel):
+    items: list[HiringRiskItem] = Field(description="Hiring risk items")
 
 
 class FitAssessment(BaseModel):
@@ -86,3 +139,11 @@ class FitAssessment(BaseModel):
             "that influenced each dimension"
         )
     )
+
+    role_breakdown: Optional[RoleBreakdown] = Field(default=None, description="What the role actually is behind the title")
+    experience_translation: Optional[list[TranslationMapping]] = Field(default=None, description="How CV experience maps to role needs")
+    gaps: Optional[list[GapItem]] = Field(default=None, description="Hard, soft, and negotiable gaps")
+    hiring_risks: Optional[list[HiringRiskItem]] = Field(default=None, description="Per-area hiring risk assessment")
+    career_trajectory: Optional[str] = Field(default=None, description="Where this role leads in 2-3 years")
+    story: Optional[ApplicationStory] = Field(default=None, description="Application narrative and strongest arguments")
+    missing_info: Optional[MissingInformation] = Field(default=None, description="Questions that would sharpen the assessment")
