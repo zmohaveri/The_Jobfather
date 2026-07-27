@@ -18,3 +18,7 @@ user_files/CVs/*
 !user_files/CVs/.gitkeep
 user_files/CoverLetters/*
 !user_files/CoverLetters/.gitkeep
+
+# Google OAuth credentials (never commit these)
+credentials.json
+token.json

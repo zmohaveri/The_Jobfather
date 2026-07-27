@@ -27,3 +27,19 @@ Assesses job fit via a 7-step LangGraph pipeline:
 7. **Produce Assessment** — generates dimension scores, overall recommendation, and stitches all intermediate output into the final result
 
 Each step has a dedicated LLM call with a focused prompt, feeding into the next. The enriched output (role breakdown, gaps, story, etc.) is persisted to SQLite alongside dimension scores.
+
+## Google Docs Integration Setup
+
+The project uses OAuth 2.0 (Desktop app flow) to read, create, and edit Google Docs — no API key needed.
+
+### One-time setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project (or use an existing one)
+3. Enable the **Google Docs API** and **Google Drive API** under *APIs & Services > Library*
+4. Go to *APIs & Services > Credentials*, click **Create Credentials > OAuth client ID**
+5. Select **Desktop app**, give it a name, and click **Create**
+6. Download the JSON file and save it as `credentials.json` in the project root
+7. On first use, a browser window opens for Google account consent — after that, a `token.json` is auto-generated and reused
+
+Both `credentials.json` and `token.json` are gitignored.
